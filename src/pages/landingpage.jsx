@@ -25,6 +25,13 @@ export default function LandingPage() {
             Contact
           </a>
           <Button
+            variant="outline"
+            onClick={() => navigate("/dashboard")}
+            className="mr-2"
+          >
+            Dashboard
+          </Button>
+          <Button
             className="bg-blue-600 text-white hover:bg-blue-700 transition"
             onClick={() => navigate("/upload")}
           >
