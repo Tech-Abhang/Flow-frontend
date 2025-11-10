@@ -91,19 +91,38 @@ export default function Predictions() {
         const backendStats = result.statistics || {};
         const classDistribution = result.class_distribution || {};
 
-        // Transform predictions data
+        // Transform predictions data - remove redundancy and rename predicted columns
         const transformedPredictions = backendPredictions.map((pred, idx) => {
           const wqi = pred.Predicted_WQI || pred.predicted_wqi || 0;
           const classification = classifyWQI(wqi);
 
+          // Create a clean prediction object
+          const cleanPred = {};
+          
+          // Add all original input features (exclude predicted columns and WQI target)
+          Object.keys(pred).forEach((key) => {
+            // Skip predicted columns, WQI target, and any duplicates - we'll add them separately with prefix
+            if (key !== 'Predicted_WQI' && key !== 'predicted_wqi' && 
+                key !== 'WQI_Class' && key !== 'WQI' &&
+                key !== 'predicted_WQI' && key !== 'predicted_WQI_Class') {
+              cleanPred[key] = pred[key];
+            }
+          });
+
+          // Add predicted columns with prefix (only these, no duplicates)
+          cleanPred['predicted_WQI'] = wqi;
+          cleanPred['predicted_WQI_Class'] = pred.WQI_Class || classification.class;
+
           return {
             id: idx + 1,
+            // Internal fields for UI display only (not in CSV)
             predicted_wqi: wqi,
             wqi_class: pred.WQI_Class || classification.class,
             color: classification.color,
             icon: classification.icon,
             isPure: wqi <= 50,
-            ...pred,
+            // All data columns including predicted_WQI and predicted_WQI_Class
+            ...cleanPred,
           };
         });
 
@@ -155,17 +174,51 @@ export default function Predictions() {
   };
 
   const downloadResults = () => {
+    if (predictions.length === 0) return;
+
+    // Exclude internal fields and WQI target column
+    const excludeFields = [
+      "id",
+      "icon",
+      "color",
+      "isPure",
+      "WQI", // Target column
+      "predicted_wqi", // Use predicted_WQI instead
+      "wqi_class", // Use predicted_WQI_Class instead
+      "Predicted_WQI", // Use predicted_WQI instead
+      "WQI_Class", // Use predicted_WQI_Class instead
+    ];
+
+    // Get all columns excluding internal fields and WQI
+    const headers = Object.keys(predictions[0]).filter(
+      (k) => !excludeFields.includes(k)
+    );
+
     // Create CSV content
-    const headers = Object.keys(predictions[0])
-      .filter((k) => k !== "icon" && k !== "color")
-      .join(",");
+    const csvHeaders = headers.join(",");
     const rows = predictions.map((p) =>
-      Object.entries(p)
-        .filter(([k]) => k !== "icon" && k !== "color")
-        .map(([_, v]) => v)
+      headers
+        .map((header) => {
+          const value = p[header];
+          // Handle null, undefined, NaN, and wrap strings with commas in quotes
+          if (
+            value === null ||
+            value === undefined ||
+            (typeof value === "number" && isNaN(value))
+          ) {
+            return "";
+          }
+          const strValue = String(value);
+          // Wrap in quotes if contains comma, newline, or quote
+          return strValue.includes(",") ||
+            strValue.includes("\n") ||
+            strValue.includes('"')
+            ? `"${strValue.replace(/"/g, '""')}"`
+            : strValue;
+        })
         .join(",")
     );
-    const csv = [headers, ...rows].join("\n");
+    const csv = [csvHeaders, ...rows].join("\n");
 
     // Download
     const blob = new Blob([csv], { type: "text/csv" });
@@ -246,14 +299,11 @@ export default function Predictions() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+            className="mb-12"
           >
-            <h1 className="text-5xl font-bold text-gray-800 mb-4">
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">
               Water Quality Predictions & Detection
             </h1>
-            <p className="text-lg text-gray-600">
-              Using {selectedModel} model with R² = {modelMetrics.r2.toFixed(3)}
-            </p>
           </motion.div>
 
           {/* Summary Statistics */}
@@ -263,9 +313,9 @@ export default function Predictions() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="grid md:grid-cols-4 gap-6 mb-8"
           >
-            <Card className="border-2 border-blue-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">
+            <Card className="border-2">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-2xl text-gray-600">
                   Total Samples
                 </CardTitle>
               </CardHeader>
@@ -276,10 +326,9 @@ export default function Predictions() {
               </CardContent>
             </Card>
 
-            <Card className="border-2 border-green-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
+            <Card className="border-2">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-2xl text-gray-600 flex items-center gap-2">
                   Pure Water
                 </CardTitle>
               </CardHeader>
@@ -294,10 +343,9 @@ export default function Predictions() {
               </CardContent>
             </Card>
 
-            <Card className="border-2 border-red-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600 flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
+            <Card className="border-2">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-2xl text-gray-600 flex items-center gap-2">
                   Contaminated
                 </CardTitle>
               </CardHeader>
@@ -315,9 +363,9 @@ export default function Predictions() {
               </CardContent>
             </Card>
 
-            <Card className="border-2 border-purple-300">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-600">
+            <Card className="border-2">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-2xl text-gray-600">
                   Average WQI
                 </CardTitle>
               </CardHeader>
@@ -341,13 +389,9 @@ export default function Predictions() {
           >
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="w-6 h-6 text-blue-600" />
+                <CardTitle className="flex items-center gap-2 text-3xl">
                   Water Quality Classification Distribution
                 </CardTitle>
-                <CardDescription>
-                  Distribution of samples across different WQI classes
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -374,21 +418,21 @@ export default function Predictions() {
                               {count} samples ({percentage.toFixed(1)}%)
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-6">
+                          <div className="w-full bg-gray-200 rounded-full h-3">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${percentage}%` }}
                               transition={{ duration: 1, delay: idx * 0.1 }}
-                              className={`h-6 rounded-full ${
+                              className={`h-3 rounded-full ${
                                 colorClass === "green"
-                                  ? "bg-green-500"
+                                  ? "bg-green-500/50"
                                   : colorClass === "blue"
-                                  ? "bg-blue-500"
+                                  ? "bg-blue-500/50"
                                   : colorClass === "yellow"
-                                  ? "bg-yellow-500"
+                                  ? "bg-yellow-500/50"
                                   : colorClass === "orange"
-                                  ? "bg-orange-500"
-                                  : "bg-red-500"
+                                  ? "bg-orange-500/50"
+                                  : "bg-red-500/50"
                               }`}
                             />
                           </div>
@@ -411,14 +455,9 @@ export default function Predictions() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart className="w-6 h-6 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-3xl">
                       Detailed Predictions
                     </CardTitle>
-                    <CardDescription>
-                      Sample-by-sample WQI predictions and water quality
-                      classification
-                    </CardDescription>
                   </div>
                   <Button
                     onClick={downloadResults}
@@ -441,21 +480,58 @@ export default function Predictions() {
                           Predicted WQI
                         </th>
                         <th className="text-center p-3 font-semibold">
-                          Classification
+                          Predicted WQI Class 
                         </th>
                         <th className="text-center p-3 font-semibold">
                           Water Status
                         </th>
-                        <th className="text-center p-3 font-semibold">pH</th>
-                        <th className="text-center p-3 font-semibold">TDS</th>
-                        <th className="text-center p-3 font-semibold">
-                          Conductivity
-                        </th>
+                        {predictions.length > 0 &&
+                          Object.keys(predictions[0])
+                            .filter(
+                              (key) =>
+                                ![
+                                  "id",
+                                  "icon",
+                                  "color",
+                                  "isPure",
+                                  "predicted_wqi",
+                                  "wqi_class",
+                                  "Predicted_WQI",
+                                  "WQI_Class",
+                                  "predicted_WQI",
+                                  "predicted_WQI_Class",
+                                ].includes(key)
+                            )
+                            .map((column) => (
+                              <th
+                                key={column}
+                                className="text-center p-3 font-semibold"
+                              >
+                                {column}
+                              </th>
+                            ))}
                       </tr>
                     </thead>
                     <tbody>
                       {predictions.map((pred) => {
                         const Icon = pred.icon;
+                        // Get all data columns (exclude internal fields, old predicted column names, and predicted_WQI/predicted_WQI_Class since they're shown in first 2 columns)
+                        const dataColumns = Object.keys(pred).filter(
+                          (key) =>
+                            ![
+                              "id",
+                              "icon",
+                              "color",
+                              "isPure",
+                              "predicted_wqi",
+                              "wqi_class",
+                              "Predicted_WQI",
+                              "WQI_Class",
+                              "predicted_WQI",
+                              "predicted_WQI_Class",
+                            ].includes(key)
+                        );
+
                         return (
                           <tr
                             key={pred.id}
@@ -480,29 +556,37 @@ export default function Predictions() {
                             <td className="text-center p-3">
                               {pred.isPure ? (
                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-800 border border-green-300 text-xs font-semibold">
-                                  <Droplet className="w-3 h-3" />
+
                                   Pure
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-800 border border-red-300 text-xs font-semibold">
-                                  <TrendingDown className="w-3 h-3" />
+
                                   Contaminated
                                 </span>
                               )}
                             </td>
-                            <td className="text-center p-3 text-gray-600">
-                              {pred.pH || pred["pH"] || "N/A"}
-                            </td>
-                            <td className="text-center p-3 text-gray-600">
-                              {pred.TDS ||
-                                pred["Total Dissolved Solids (mg/L)"] ||
-                                "N/A"}
-                            </td>
-                            <td className="text-center p-3 text-gray-600">
-                              {pred.Conductivity ||
-                                pred["Conductivity (μmhos/cm)"] ||
-                                "N/A"}
-                            </td>
+                            {dataColumns.map((column) => {
+                              const value = pred[column];
+                              // Format the value - handle null, undefined, and NaN
+                              const displayValue =
+                                value === null ||
+                                value === undefined ||
+                                (typeof value === "number" && isNaN(value))
+                                  ? ""
+                                  : typeof value === "number"
+                                  ? value.toFixed(2)
+                                  : String(value);
+
+                              return (
+                                <td
+                                  key={column}
+                                  className="text-center p-3 text-gray-600"
+                                >
+                                  {displayValue}
+                                </td>
+                              );
+                            })}
                           </tr>
                         );
                       })}

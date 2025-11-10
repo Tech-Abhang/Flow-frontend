@@ -45,18 +45,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Activity className="w-6 h-6 text-white" />
-            </div>
             <span className="text-xl font-bold text-gray-800">
-              Water Quality AI
+              Flow
             </span>
           </div>
 
           {/* Navigation Items */}
           <div className="flex items-center gap-2">
             {navItems.map((item) => {
-              const Icon = item.icon;
               const isActive = location.pathname === item.path;
 
               return (
@@ -65,14 +61,13 @@ export default function Navbar() {
                   variant={isActive ? "default" : "ghost"}
                   size="sm"
                   onClick={() => handleNavigation(item.path)}
-                  className={`flex items-center gap-2 ${
+                  className={`${
                     isActive
                       ? "bg-blue-600 text-white hover:bg-blue-700"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden md:inline">{item.label}</span>
+                  {item.label}
                 </Button>
               );
             })}

@@ -40,7 +40,7 @@ import {
 
 export default function ModelInsights() {
   const [insights, setInsights] = useState(null);
-  const [selectedFeature, setSelectedFeature] = useState(null);
+  const [selectedFeature, setSelectedFeature] = useState("pH");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -90,6 +90,20 @@ export default function ModelInsights() {
       predicted: d.predicted,
     }));
 
+    // Generate Error Distribution (histogram bins)
+    const errorBins = [];
+    const binSize = 2;
+    for (let i = -15; i <= 15; i += binSize) {
+      const count = residuals.filter(
+        (r) => r.residual >= i && r.residual < i + binSize
+      ).length;
+      errorBins.push({
+        bin: `${i.toFixed(0)}`,
+        count: count,
+        density: count / residuals.length,
+      });
+    }
+
     // Generate SHAP values for features
     const features = [
       "pH",
@@ -109,14 +123,20 @@ export default function ModelInsights() {
       negativeImpact: -Math.random() * 100,
     }));
 
-    // Generate Partial Dependence Plot data
-    const pdpData = Array.from({ length: 50 }, (_, i) => {
-      const x = 5 + (i * 4) / 50;
-      return {
-        value: x,
-        pdp: 30 + 20 * Math.sin((x - 7) * 2) + Math.random() * 5,
-      };
-    });
+    // Generate Partial Dependence Plot data per feature
+    const pdpByFeature = features.reduce((acc, feature, idx) => {
+      const amplitude = 18 - idx * 1.5;
+      const phaseShift = idx * 0.6;
+      acc[feature] = Array.from({ length: 50 }, (_, i) => {
+        const value = 5 + (i * 4) / 50;
+        const pdp =
+          30 +
+          amplitude * Math.sin((value - 6 + phaseShift) * 1.8) +
+          idx * 2;
+        return { value, pdp };
+      });
+      return acc;
+    }, {});
 
     // Generate Correlation Matrix
     const correlationMatrix = features.map((feature1, i) =>
@@ -133,7 +153,7 @@ export default function ModelInsights() {
       predictedVsActual,
       residuals,
       shapValues,
-      pdpData,
+      pdpByFeature,
       correlationMatrix,
       features,
     });
@@ -152,14 +172,8 @@ export default function ModelInsights() {
     );
   }
 
-  const {
-    predictedVsActual,
-    residuals,
-    shapValues,
-    pdpData,
-    correlationMatrix,
-    features,
-  } = insights;
+  const { predictedVsActual, residuals, shapValues, pdpByFeature, correlationMatrix, features } =
+    insights;
 
   // Calculate R² for the scatter plot
   const meanActual =
@@ -292,7 +306,7 @@ export default function ModelInsights() {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="p-3 rounded-lg">
                     <p className="text-xs text-blue-600 font-medium">
                       R² Score
                     </p>
@@ -300,11 +314,11 @@ export default function ModelInsights() {
                       {r2Score}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <p className="text-xs text-green-600 font-medium">
+                  <div className="p-3 rounded-lg">
+                    <p className="text-xs text-blue-600 font-medium">
                       Mean Error
                     </p>
-                    <p className="text-2xl font-bold text-green-700">
+                    <p className="text-2xl font-bold text-blue-700">
                       {(
                         residuals.reduce(
                           (sum, d) => sum + Math.abs(d.residual),
@@ -313,11 +327,11 @@ export default function ModelInsights() {
                       ).toFixed(2)}
                     </p>
                   </div>
-                  <div className="p-3 bg-purple-50 rounded-lg">
-                    <p className="text-xs text-purple-600 font-medium">
+                  <div className="p-3 rounded-lg">
+                    <p className="text-xs text-blue-600 font-medium">
                       Std Dev
                     </p>
-                    <p className="text-2xl font-bold text-purple-700">
+                    <p className="text-2xl font-bold text-blue-700">
                       {Math.sqrt(
                         residuals.reduce(
                           (sum, d) => sum + Math.pow(d.residual, 2),
@@ -413,20 +427,13 @@ export default function ModelInsights() {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 mb-2">
-                    Interpretation:
+                  <h4 className="font-semibold text-blue-800 mb-2 text-base">
+                    Interpretation
                   </h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>
-                      • Random scatter around zero line = good model (no bias)
-                    </li>
-                    <li>
-                      • Funnel shape = heteroscedasticity (variance increases)
-                    </li>
-                    <li>
-                      • Curved pattern = model missing non-linear relationships
-                    </li>
-                  </ul>
+                  <p className="text-sm text-blue-700">
+                    Even scatter around the zero line signals balanced errors. If points flare out on
+                    one side, investigate bias or variance jumps.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -453,7 +460,7 @@ export default function ModelInsights() {
                   <div className="h-96">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={shapValues.sort(
+                        data={[...shapValues].sort(
                           (a, b) => b.importance - a.importance
                         )}
                         layout="vertical"
@@ -493,10 +500,8 @@ export default function ModelInsights() {
                     </ResponsiveContainer>
                   </div>
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-800">
-                      <strong>SHAP values</strong> explain individual
-                      predictions by showing how much each feature contributed
-                      to the final prediction.
+                    <p className="text-sm text-blue-800">
+                      SHAP shows how each input nudges the predicted WQI up or down.
                     </p>
                   </div>
                 </CardContent>
@@ -509,43 +514,39 @@ export default function ModelInsights() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Card className="h-full">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <GitBranch className="w-5 h-5 text-blue-600" />
                     Partial Dependence Plot
                   </CardTitle>
                   <CardDescription>
-                    Non-linear relationship with WQI
+                    Non-linear relationship between feature and WQI
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Feature selector */}
+                  {/* Feature Selector */}
                   <div className="mb-4">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Select Feature:
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Feature
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <select
+                      value={selectedFeature}
+                      onChange={(e) => setSelectedFeature(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
                       {features.map((feature) => (
-                        <button
-                          key={feature}
-                          onClick={() => setSelectedFeature(feature)}
-                          className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                            selectedFeature === feature
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
+                        <option key={feature} value={feature}>
                           {feature}
-                        </button>
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
 
-                  <div className="h-72">
+                  <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
-                        data={pdpData}
+                        data={pdpByFeature[selectedFeature] || []}
                         margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -559,7 +560,7 @@ export default function ModelInsights() {
                         />
                         <YAxis
                           label={{
-                            value: "Predicted WQI",
+                            value: "Partial Dependence",
                             angle: -90,
                             position: "insideLeft",
                           }}
@@ -574,7 +575,7 @@ export default function ModelInsights() {
                                     {payload[0].payload.value.toFixed(2)}
                                   </p>
                                   <p className="text-sm">
-                                    WQI: {payload[0].value.toFixed(2)}
+                                    PD: {payload[0].value.toFixed(2)}
                                   </p>
                                 </div>
                               );
@@ -586,16 +587,15 @@ export default function ModelInsights() {
                           type="monotone"
                           dataKey="pdp"
                           stroke="#3b82f6"
-                          strokeWidth={3}
+                          strokeWidth={2}
                           dot={false}
                         />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-800">
-                      <strong>PDP</strong> shows how the prediction changes as a
-                      feature varies, revealing non-linear relationships.
+                    <p className="text-sm text-blue-800">
+                      PDP traces how changing this feature alone shifts the expected WQI.
                     </p>
                   </div>
                 </CardContent>
@@ -700,57 +700,16 @@ export default function ModelInsights() {
                 </div>
 
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 mb-2">
-                    Key Insights:
+                  <h4 className="font-semibold text-blue-800 mb-2 text-base">
+                    Quick Takeaways
                   </h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>
-                      • Strong correlations (&gt; 0.7) indicate redundant
-                      features
-                    </li>
-                    <li>
-                      • TDS and Conductivity typically show high correlation
-                    </li>
-                    <li>• Multicollinearity can affect some model types</li>
-                  </ul>
+                  <p className="text-sm text-blue-700">
+                    Darker cells highlight pairs that move together. Watch for heavily correlated
+                    inputs before training linear models.
+                  </p>
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-
-          {/* Action Buttons */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="flex gap-4 justify-center flex-wrap"
-          >
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => navigate("/model-analysis")}
-              className="border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Model Comparison
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => navigate("/dashboard")}
-              className="border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
-            >
-              <Activity className="w-4 h-4 mr-2" />
-              View Dashboard
-            </Button>
-            <Button
-              size="lg"
-              onClick={() => navigate("/predictions")}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Make Predictions
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
           </motion.div>
         </div>
       </div>

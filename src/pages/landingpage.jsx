@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Droplet, BarChart3, Brain, Shield } from "lucide-react";
+import Lottie from "lottie-react";
+import dropletAnimation from "@/assets/droplet-animation.json";
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -15,12 +17,6 @@ export default function LandingPage() {
           Flow
         </h1>
         <nav className="space-x-6">
-          <a href="#features" className="hover:text-blue-600 transition">
-            Features
-          </a>
-          <a href="#about" className="hover:text-blue-600 transition">
-            About
-          </a>
           <Button
             variant="outline"
             onClick={() => navigate("/dashboard")}
@@ -65,26 +61,29 @@ export default function LandingPage() {
             >
               Get Started
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() =>
-                document
-                  .getElementById("features")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-            >
-              Learn More
-            </Button>
           </div>
         </motion.div>
 
-        {/* Right side — empty for now */}
-        <div className="hidden md:block md:w-1/2"></div>
+        {/* Right side — Lottie Animation */}
+        <motion.div
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="hidden md:flex md:w-1/2 items-center justify-center"
+        >
+          <div className="w-full max-w-lg">
+            <Lottie
+              animationData={dropletAnimation}
+              loop={true}
+              autoplay={true}
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+        </motion.div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="px-8 md:px-20 py-20 bg-white">
+      {/* <section id="features" className="px-8 md:px-20 py-20 bg-white">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -153,7 +152,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
         </div>
-      </section>
+      </section> */}
     </div>
   );
 }

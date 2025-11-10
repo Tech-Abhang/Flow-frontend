@@ -132,23 +132,19 @@ export default function UploadDataset() {
 
   const handleProceed = () => {
     if (file && filePreview) {
-      // Check if dataset has WQI column (training data) or not (inference data)
       const hasWQI = filePreview.headers.includes("WQI");
 
-      // Clear any cached training results to force re-training
       sessionStorage.removeItem("trainingResults");
       sessionStorage.removeItem("featureImportance");
       sessionStorage.removeItem("modelMetrics");
       sessionStorage.removeItem("selectedModel");
 
-      // Store file data in sessionStorage
       const reader = new FileReader();
       reader.onload = (e) => {
         sessionStorage.setItem("uploadedDataset", e.target.result);
         sessionStorage.setItem("datasetFileName", fileName);
         sessionStorage.setItem("hasWQI", hasWQI.toString());
 
-        // Store the actual file object as a data URL for re-uploading to backend
         const fileReader = new FileReader();
         fileReader.onload = (event) => {
           sessionStorage.setItem("uploadedFileData", event.target.result);
@@ -161,8 +157,8 @@ export default function UploadDataset() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-cyan-50 py-12 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-cyan-50 py-12 px-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -173,10 +169,6 @@ export default function UploadDataset() {
           <h1 className="text-5xl font-bold text-gray-800 mb-4">
             Upload Your Water Quality Dataset
           </h1>
-          <p className="text-lg text-gray-600">
-            Upload a CSV file with water quality parameters to analyze purity
-            and predict WQI
-          </p>
         </motion.div>
 
         {/* Required Columns Info */}
@@ -184,8 +176,9 @@ export default function UploadDataset() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
+          className="w-full"
         >
-          <Card className="mb-8 border-blue-200">
+          <Card className="mb-10 w-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-blue-600" />
@@ -197,11 +190,11 @@ export default function UploadDataset() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
                 {requiredColumns.map((col) => (
                   <div
                     key={col}
-                    className="bg-blue-50 px-3 py-2 rounded-md text-sm font-medium text-blue-700"
+                    className="bg-blue-50 px-3 py-2 rounded-md text-sm font-medium text-blue-700 text-center"
                   >
                     {col}
                   </div>
@@ -220,11 +213,12 @@ export default function UploadDataset() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
+          className="w-full"
         >
-          <Card className="mb-8">
-            <CardContent className="p-8">
+          <Card className="mb-10 w-full">
+            <CardContent className="p-10">
               <div
-                className={`border-2 border-dashed rounded-lg p-12 text-center transition-all ${
+                className={`border-2 border-dashed rounded-lg p-16 text-center transition-all ${
                   dragActive
                     ? "border-blue-500 bg-blue-50"
                     : "border-gray-300 hover:border-blue-400"
@@ -302,7 +296,7 @@ export default function UploadDataset() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <Card className="mb-8">
+            <Card className="mb-8 w-full">
               <CardHeader>
                 <CardTitle>Data Preview</CardTitle>
                 <CardDescription>First 5 rows of your dataset</CardDescription>

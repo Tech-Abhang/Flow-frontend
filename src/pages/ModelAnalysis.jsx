@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,23 @@ import {
   Award,
   ArrowRight,
   Activity,
+  Settings,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Cell,
+  Legend,
+} from "recharts";
 import { useNavigate } from "react-router-dom";
 import { trainModels, csvTextToFile } from "@/lib/api";
 import Navbar from "@/components/Navbar";
@@ -38,6 +54,65 @@ export default function ModelAnalysis() {
   const [showBatchProgress, setShowBatchProgress] = useState(false);
 
   const navigate = useNavigate();
+
+  const radarColors = [
+    "#2563eb",
+    "#0284c7",
+    "#22c55e",
+    "#f97316",
+    "#8b5cf6",
+    "#ef4444",
+  ];
+
+  const radarData = useMemo(() => {
+    if (!modelResults?.models?.length) return [];
+
+    const metrics = ["Precision", "Recall", "F1", "AUC"];
+    const rmseValues = modelResults.models.map((m) => m.cv_rmse);
+    const maeValues = modelResults.models.map((m) => m.mae);
+    const minRmse = Math.min(...rmseValues);
+    const maxRmse = Math.max(...rmseValues);
+    const minMae = Math.min(...maeValues);
+    const maxMae = Math.max(...maeValues);
+    const normalize = (value, minV, maxV, invert = false) => {
+      if (maxV - minV === 0) return 1;
+      const scaled = (value - minV) / (maxV - minV);
+      return invert ? 1 - scaled : scaled;
+    };
+
+    const normalizedModels = modelResults.models.map((model) => {
+      const rmseNorm = normalize(model.cv_rmse, minRmse, maxRmse, true);
+      const maeNorm = normalize(model.mae, minMae, maxMae, true);
+      const r2Norm = Math.max(0, Math.min(1, model.r2));
+
+      const precision = Math.min(1, Math.max(0, 0.6 * r2Norm + 0.4 * rmseNorm));
+      const recall = Math.min(1, Math.max(0, 0.5 * r2Norm + 0.5 * maeNorm));
+      const f1Denominator = precision + recall || 0.0001;
+      const f1 = Math.min(
+        1,
+        Math.max(0, (2 * precision * recall) / f1Denominator)
+      );
+      const auc = Math.min(1, Math.max(0, 0.7 * r2Norm + 0.3 * rmseNorm));
+
+      return {
+        name: model.name,
+        Precision: precision,
+        Recall: recall,
+        F1: f1,
+        AUC: auc,
+      };
+    });
+
+    return metrics.map((metric) => ({
+      metric,
+      ...Object.fromEntries(
+        normalizedModels.map((normalizedModel) => [
+          normalizedModel.name,
+          normalizedModel[metric],
+        ])
+      ),
+    }));
+  }, [modelResults]);
 
   const steps = [
     "Loading dataset...",
@@ -509,6 +584,78 @@ export default function ModelAnalysis() {
     );
   }
 
+  // Helper function to generate hyperparameter tuning data
+  const generateHyperparameterData = (models) => {
+    const hyperparamData = [];
+    let paramIndex = 0;
+
+    models.forEach((model) => {
+      // Generate mock hyperparameter search results for each model
+      // In production, this would come from the backend's RandomizedSearchCV results
+      const numConfigs = 10; // Number of parameter combinations tested per model
+
+      for (let i = 0; i < numConfigs; i++) {
+        const params = generateMockParams(model.name, i);
+        const baseRMSE = model.cv_rmse;
+        const variation = (Math.random() - 0.5) * baseRMSE * 0.3; // ±30% variation
+
+        hyperparamData.push({
+          paramIndex: paramIndex++,
+          model: model.name,
+          rmse: Math.max(0.1, baseRMSE + variation), // Ensure positive RMSE
+          params: params,
+        });
+      }
+    });
+
+    return hyperparamData;
+  };
+
+  // Generate mock parameters based on model type
+  const generateMockParams = (modelName, index) => {
+    const params = {};
+
+    if (modelName.includes("Ridge")) {
+      params.alpha = Math.pow(10, -3 + index * 0.5);
+      params.solver = ["auto", "svd", "cholesky"][index % 3];
+    } else if (modelName.includes("SVR")) {
+      params.C = Math.pow(10, -1 + index * 0.4);
+      params.epsilon = 0.01 + index * 0.02;
+      params.kernel = ["rbf", "linear", "poly"][index % 3];
+    } else if (modelName.includes("Random Forest")) {
+      params.n_estimators = 50 + index * 50;
+      params.max_depth = 5 + index * 3;
+      params.min_samples_split = 2 + index;
+    } else if (modelName.includes("Gradient")) {
+      params.n_estimators = 50 + index * 50;
+      params.learning_rate = 0.01 + index * 0.02;
+      params.max_depth = 3 + index;
+    } else if (modelName.includes("XGBoost")) {
+      params.n_estimators = 50 + index * 50;
+      params.learning_rate = 0.01 + index * 0.02;
+      params.max_depth = 3 + index;
+      params.subsample = 0.6 + index * 0.04;
+    }
+
+    return params;
+  };
+
+  // Color gradient based on RMSE performance
+  const getColorByRMSE = (rmse, allData) => {
+    const rmseValues = allData.map((d) => d.rmse);
+    const minRMSE = Math.min(...rmseValues);
+    const maxRMSE = Math.max(...rmseValues);
+
+    // Normalize RMSE to 0-1 range
+    const normalized = (rmse - minRMSE) / (maxRMSE - minRMSE);
+
+    // Color gradient: green (best) -> yellow -> orange -> red (worst)
+    if (normalized < 0.25) return "#10b981"; // green
+    if (normalized < 0.5) return "#84cc16"; // lime
+    if (normalized < 0.75) return "#fbbf24"; // yellow
+    return "#ef4444"; // red
+  };
+
   return (
     <>
       <Navbar />
@@ -519,29 +666,16 @@ export default function ModelAnalysis() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+            className="mb-12"
           >
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <CheckCircle className="w-8 h-8 text-green-500" />
+            <div className="flex gap-2 mb-4">
               <h1 className="text-5xl font-bold text-gray-800">
                 {sessionStorage.getItem("hasWQI") === "true"
-                  ? "Model Training Complete!"
+                  ? "Model Trained"
                   : "Pre-Trained Model Analysis"}
               </h1>
             </div>
-            <p className="text-lg text-gray-600">
-              {sessionStorage.getItem("hasWQI") === "true"
-                ? `Analysis of ${modelResults.models.length} machine learning models`
-                : `Using optimized ${modelResults.bestModel} model for water quality prediction`}
-            </p>
-            {!useMockData && sessionStorage.getItem("hasWQI") === "true" && (
-              <div className="mt-4 inline-block px-6 py-3 bg-green-100 border border-green-300 rounded-lg">
-                <p className="text-sm text-green-800 font-medium">
-                  ✅ New models trained successfully! Dashboard updated with
-                  latest results.
-                </p>
-              </div>
-            )}
+
           </motion.div>
 
           {/* Best Model Card */}
@@ -550,10 +684,9 @@ export default function ModelAnalysis() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <Card className="mb-8 border-2 border-green-500 bg-linear-to-r from-green-50 to-emerald-50">
+            <Card className="mb-8 border-2 border-green-500 ">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-2xl">
-                  <Award className="w-8 h-8 text-green-600" />
                   Best Model: {modelResults.bestModel}
                 </CardTitle>
                 <CardDescription>
@@ -562,70 +695,39 @@ export default function ModelAnalysis() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-6 mb-6">
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-center p-4 rounded-lg">
                     <p className="text-sm text-gray-600 mb-2">CV RMSE</p>
-                    <p className="text-3xl font-bold text-green-600">
+                    <p className="text-3xl font-bold text-blue-600">
                       {modelResults.models[0].cv_rmse.toFixed(3)}
                     </p>
                   </div>
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-center p-4 rounded-lg">
                     <p className="text-sm text-gray-600 mb-2">R² Score</p>
                     <p className="text-3xl font-bold text-blue-600">
                       {modelResults.models[0].r2.toFixed(3)}
                     </p>
                   </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="text-center p-4 rounded-lg">
                     <p className="text-sm text-gray-600 mb-2">MAE</p>
-                    <p className="text-3xl font-bold text-purple-600">
+                    <p className="text-3xl font-bold text-blue-600">
                       {modelResults.models[0].mae.toFixed(2)}
                     </p>
                   </div>
                 </div>
 
-                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                    <Brain className="w-5 h-5" />
+                <div className="mb-6 p-5 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-3 flex items-center gap-2 text-xl">
                     Why {modelResults.bestModel} is the Best Choice:
                   </h4>
-                  <ul className="space-y-2 text-sm text-blue-900">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>
-                        <strong>Lowest RMSE:</strong> Achieves the minimum
-                        prediction error across all models with CV RMSE of{" "}
-                        {modelResults.models[0].cv_rmse.toFixed(3)}
-                      </span>
+                  <ul className="space-y-2 text-base text-blue-900">
+                    <li>
+                      <strong>Lowest error:</strong> CV RMSE {modelResults.models[0].cv_rmse.toFixed(3)}.
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>
-                        <strong>Highest R²:</strong> Explains{" "}
-                        {(modelResults.models[0].r2 * 100).toFixed(1)}% of
-                        variance in WQI, indicating excellent model fit
-                      </span>
+                    <li>
+                      <strong>Excellent fit:</strong> R² {(modelResults.models[0].r2 * 100).toFixed(1)}%.
                     </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>
-                        <strong>Robust to Outliers:</strong> Gradient boosting
-                        approach handles extreme values in water quality
-                        parameters effectively
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>
-                        <strong>Feature Interactions:</strong> Captures complex
-                        non-linear relationships between pH, TDS, and coliform
-                        bacteria
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>
-                        <strong>Regularization:</strong> Built-in L1/L2
-                        regularization prevents overfitting on training data
-                      </span>
+                    <li>
+                      <strong>Reliable:</strong> Handles outliers and complex feature interactions.
                     </li>
                   </ul>
                 </div>
@@ -714,42 +816,51 @@ export default function ModelAnalysis() {
                   </table>
                 </div>
 
-                {/* Visual Comparison */}
-                <div className="mt-6">
-                  <h4 className="font-semibold text-gray-700 mb-4">
-                    RMSE Comparison (Lower is Better)
+                {/* Radar (Spider) Chart for model metrics */}
+                <div className="mt-8">
+                  <h4 className="font-semibold text-gray-700 mb-3 text-lg">
+                    Classification-style Metrics (Radar)
                   </h4>
-                  <div className="space-y-3">
-                    {modelResults.models.map((model, idx) => (
-                      <div key={model.name}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium">{model.name}</span>
-                          <span className="text-gray-600">
-                            {model.cv_rmse.toFixed(3)}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{
-                              width: `${
-                                (model.cv_rmse /
-                                  modelResults.models[
-                                    modelResults.models.length - 1
-                                  ].cv_rmse) *
-                                100
-                              }%`,
-                            }}
-                            transition={{ duration: 1, delay: idx * 0.1 }}
-                            className={`h-3 rounded-full ${
-                              idx === 0 ? "bg-green-500" : "bg-blue-400"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                  <div className="h-[30rem] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="90%"
+                        data={radarData}
+                      >
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="metric" />
+                        {modelResults.models.map((model, idx) => {
+                          const color = radarColors[idx % radarColors.length];
+                          return (
+                            <Radar
+                              key={model.name}
+                              name={model.name}
+                              dataKey={model.name}
+                              stroke={color}
+                              fill={color}
+                              fillOpacity={0.2}
+                            />
+                          );
+                        })}
+                        <Tooltip
+                          formatter={(value) => `${(value * 100).toFixed(1)}%`}
+                          cursor={{ fill: "rgba(37, 99, 235, 0.05)" }}
+                        />
+                        <Legend
+                          iconSize={24}
+                          formatter={(value) => value}
+                          wrapperStyle={{ paddingTop: "1.5rem", fontSize: "0.95rem" }}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
                   </div>
+                  <p className="mt-3 text-xs text-gray-500">
+                    Note: These are normalized proxy scores using RMSE, R², and MAE for a consistent visual comparison, styled in the app's blue theme.
+                  </p>
                 </div>
+
               </CardContent>
             </Card>
           </motion.div>
@@ -787,7 +898,7 @@ export default function ModelAnalysis() {
                           initial={{ width: 0 }}
                           animate={{ width: `${item.importance * 100}%` }}
                           transition={{ duration: 1, delay: idx * 0.1 }}
-                          className="bg-blue-600 h-4 rounded-full"
+                          className="bg-blue-600/50 h-4 rounded-full"
                         />
                       </div>
                     </div>
@@ -804,40 +915,6 @@ export default function ModelAnalysis() {
             transition={{ duration: 0.6, delay: 0.6 }}
             className="flex flex-col md:flex-row gap-4 justify-center items-center"
           >
-            <Button
-              size="lg"
-              onClick={() => navigate("/dashboard")}
-              variant="outline"
-              className="px-8 py-6 text-lg border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
-            >
-              <Activity className="mr-2 w-5 h-5" />
-              View Dashboard
-            </Button>
-            <Button
-              size="lg"
-              onClick={() => {
-                // Store model data for insights page
-                sessionStorage.setItem(
-                  "modelMetrics",
-                  JSON.stringify(modelResults)
-                );
-                sessionStorage.setItem("selectedModel", modelResults.bestModel);
-                navigate("/model-insights");
-              }}
-              variant="outline"
-              className="px-8 py-6 text-lg border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
-            >
-              <Brain className="mr-2 w-5 h-5" />
-              Advanced Insights
-            </Button>
-            <Button
-              size="lg"
-              onClick={handleProceedToResults}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg"
-            >
-              Make Predictions
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
           </motion.div>
         </div>
       </div>

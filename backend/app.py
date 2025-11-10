@@ -580,8 +580,10 @@ def predict():
         df_original.to_csv(output_path, index=False)
         
         # Prepare response with sample predictions
+        # Exclude the target column (WQI) if it exists, but include all other columns
+        columns_to_send = [col for col in df_original.columns if col != TARGET]
         sample_size = min(100, len(df_original))
-        sample_predictions = df_original[['Predicted_WQI', 'WQI_Class']].head(sample_size).to_dict(orient='records')
+        sample_predictions = df_original[columns_to_send].head(sample_size).to_dict(orient='records')
         
         # Save prediction metadata
         prediction_metadata = {

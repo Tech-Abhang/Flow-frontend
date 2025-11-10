@@ -120,27 +120,8 @@ export default function Dashboard() {
                 <h1 className="text-4xl font-bold text-gray-800 mb-2">
                   Water Quality Dashboard
                 </h1>
-                <p className="text-gray-600">
-                  Real-time insights and model performance
-                </p>
               </div>
-              <button
-                onClick={fetchDashboard}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-                disabled={loading}
-              >
-                <Activity
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
             </div>
-            {latest_training && (
-              <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                <Clock className="w-4 h-4" />
-                Last updated: {formatTimestamp(latest_training.timestamp)}
-              </div>
-            )}
           </div>
 
           {/* Stats Overview */}
@@ -149,11 +130,10 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Total Models</p>
-                  <p className="text-3xl font-bold text-blue-600">
+                  <p className="text-3xl font-bold text-blue-600/70">
                     {total_models || 0}
                   </p>
                 </div>
-                <Activity className="w-12 h-12 text-blue-600 opacity-20" />
               </div>
             </Card>
 
@@ -163,11 +143,10 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-600 mb-1">
                     Training Sessions
                   </p>
-                  <p className="text-3xl font-bold text-purple-600">
+                  <p className="text-3xl font-bold text-blue-600/70">
                     {total_training_sessions || 0}
                   </p>
                 </div>
-                <TrendingUp className="w-12 h-12 text-purple-600 opacity-20" />
               </div>
             </Card>
 
@@ -175,11 +154,10 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Predictions Made</p>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-3xl font-bold text-blue-600/70">
                     {latest_prediction?.total_predictions || 0}
                   </p>
                 </div>
-                <Droplets className="w-12 h-12 text-green-600 opacity-20" />
               </div>
             </Card>
 
@@ -187,11 +165,10 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Best Model R²</p>
-                  <p className="text-3xl font-bold text-amber-600">
+                  <p className="text-3xl font-bold text-blue-600/70">
                     {bestModel.test_r2 ? bestModel.test_r2.toFixed(3) : "N/A"}
                   </p>
                 </div>
-                <CheckCircle2 className="w-12 h-12 text-amber-600 opacity-20" />
               </div>
             </Card>
           </div>
@@ -200,7 +177,6 @@ export default function Dashboard() {
           {latest_training && (
             <Card className="p-6 mb-8 bg-white">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
                 Model Performance Comparison
               </h2>
 
@@ -220,7 +196,7 @@ export default function Dashboard() {
                       {latest_training.train_size + latest_training.test_size}{" "}
                       samples
                     </p>
-                    <p className="text-xs text-blue-600">
+                    <p className="text-md text-blue-600">
                       Train: {latest_training.train_size} | Test:{" "}
                       {latest_training.test_size}
                     </p>
@@ -287,7 +263,6 @@ export default function Dashboard() {
           {latest_prediction && (
             <Card className="p-6 bg-white">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Droplets className="w-6 h-6 text-green-600" />
                 Latest Prediction Results
               </h2>
 
@@ -339,11 +314,11 @@ export default function Dashboard() {
                           100
                         ).toFixed(1);
                         const colorMap = {
-                          Excellent: "bg-green-500",
-                          Good: "bg-blue-500",
-                          Poor: "bg-yellow-500",
-                          "Very Poor": "bg-orange-500",
-                          "Unsuitable for Drinking": "bg-red-500",
+                          Excellent: "bg-green-500/50",
+                          Good: "bg-blue-500/50",
+                          Poor: "bg-yellow-500/50",
+                          "Very Poor": "bg-orange-500/50",
+                          "Unsuitable for Drinking": "bg-red-500/50",
                         };
                         return (
                           <div key={className} className="space-y-1">
@@ -377,12 +352,6 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-600">Model Used</p>
                     <p className="text-lg font-bold text-gray-800">
                       {latest_prediction.model_used}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Predicted At</p>
-                    <p className="text-sm font-medium text-gray-700">
-                      {formatTimestamp(latest_prediction.timestamp)}
                     </p>
                   </div>
                 </div>
