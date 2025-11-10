@@ -124,7 +124,8 @@ def preprocess_dataframe(df, is_training=True):
     # Drop non-numeric/categorical columns immediately
     # Common non-numeric columns in water quality datasets
     cols_to_drop = ['State Name', 'State', 'Location', 'Station', 'Date', 
-                    'Monitoring Location', 'Station Code', 'District', 'Block']
+                    'Monitoring Location', 'Station Code', 'District', 'Block',
+                    'WQI_Classification', 'WQI_Class', 'WQI_Class_Encoded']
     for col in cols_to_drop:
         if col in df.columns:
             df = df.drop(columns=[col])
@@ -329,7 +330,8 @@ def train_models():
         # Select only numeric columns for features
         # Get all feature columns (original + engineered), excluding target and non-numeric
         numeric_df = df.select_dtypes(include=[np.number])
-        feature_cols = [col for col in numeric_df.columns if col != TARGET and col not in ['WQI_Class']]
+        feature_cols = [col for col in numeric_df.columns if col != TARGET and 
+                       col not in ['WQI_Class', 'WQI_Class_Encoded', 'WQI_Classification']]
         
         # Ensure we have the required features
         if TARGET not in numeric_df.columns:

@@ -135,6 +135,12 @@ export default function UploadDataset() {
       // Check if dataset has WQI column (training data) or not (inference data)
       const hasWQI = filePreview.headers.includes("WQI");
 
+      // Clear any cached training results to force re-training
+      sessionStorage.removeItem("trainingResults");
+      sessionStorage.removeItem("featureImportance");
+      sessionStorage.removeItem("modelMetrics");
+      sessionStorage.removeItem("selectedModel");
+
       // Store file data in sessionStorage
       const reader = new FileReader();
       reader.onload = (e) => {
