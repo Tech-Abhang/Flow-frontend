@@ -62,7 +62,21 @@ export default function ModelAnalysis() {
       return;
     }
 
-    // Clear any previous results when component mounts
+    // Check if we already have training results (navigating back from insights/predictions)
+    const existingResults = sessionStorage.getItem("trainingResults");
+    const existingFeatures = sessionStorage.getItem("featureImportance");
+
+    if (existingResults && existingFeatures) {
+      // Restore previous results without re-training
+      console.log("📋 Restoring previous training results...");
+      setModelResults(JSON.parse(existingResults));
+      setFeatureImportance(JSON.parse(existingFeatures));
+      setIsProcessing(false);
+      setProgress(100);
+      return;
+    }
+
+    // Clear any previous results when component mounts for new training
     setModelResults(null);
     setFeatureImportance(null);
     setError(null);
@@ -234,6 +248,18 @@ export default function ModelAnalysis() {
       });
       setFeatureImportance(featureImp);
       setError(null);
+
+      // Save results to sessionStorage to prevent re-training on navigation
+      sessionStorage.setItem(
+        "trainingResults",
+        JSON.stringify({
+          models: transformedModels,
+          bestModel: result.best_model,
+          bestParams: bestModelData.best_params || {},
+          trainingTime: "Completed",
+        })
+      );
+      sessionStorage.setItem("featureImportance", JSON.stringify(featureImp));
 
       // Wait a moment to show 100% before transitioning
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -833,6 +859,20 @@ export default function ModelAnalysis() {
           >
             <Activity className="mr-2 w-5 h-5" />
             View Dashboard
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => {
+              // Store model data for insights page
+              sessionStorage.setItem("modelMetrics", JSON.stringify(modelResults));
+              sessionStorage.setItem("selectedModel", modelResults.bestModel);
+              navigate("/model-insights");
+            }}
+            variant="outline"
+            className="px-8 py-6 text-lg border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+          >
+            <Brain className="mr-2 w-5 h-5" />
+            Advanced Insights
           </Button>
           <Button
             size="lg"

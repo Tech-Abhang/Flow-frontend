@@ -21,9 +21,6 @@ export default function LandingPage() {
           <a href="#about" className="hover:text-blue-600 transition">
             About
           </a>
-          <a href="#contact" className="hover:text-blue-600 transition">
-            Contact
-          </a>
           <Button
             variant="outline"
             onClick={() => navigate("/dashboard")}
