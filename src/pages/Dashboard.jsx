@@ -286,13 +286,6 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <span className="text-gray-600">Range:</span>
-                      <span className="font-bold text-gray-800">
-                        {latest_prediction.statistics.min_wqi.toFixed(2)} -{" "}
-                        {latest_prediction.statistics.max_wqi.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                       <span className="text-gray-600">Std Dev:</span>
                       <span className="font-bold text-gray-800">
                         {latest_prediction.statistics.std_wqi.toFixed(2)}
@@ -342,17 +335,6 @@ export default function Dashboard() {
                         );
                       }
                     )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Model Used</p>
-                    <p className="text-lg font-bold text-gray-800">
-                      {latest_prediction.model_used}
-                    </p>
                   </div>
                 </div>
               </div>

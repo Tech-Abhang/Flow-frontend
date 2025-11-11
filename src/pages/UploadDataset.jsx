@@ -25,9 +25,9 @@ export default function UploadDataset() {
     "Conductivity",
     "Nitrate",
     "Fecal_Coliform",
-    "Total_Coliform",
     "TDS",
     "Fluoride",
+    "WQI"
   ];
 
   const alternateColumnNames = {
